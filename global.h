@@ -3,6 +3,8 @@
 #define GLOBAL_H_
 
 #define SIZE_MAX_OPTION_STR	128
+#define RESULT_SUCCESS	0
+#define RESULT_FAILURE	-1
 
 typedef struct ProgamOptions
 {

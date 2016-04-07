@@ -3,6 +3,8 @@
 
 #define SIZE_TCP_READ_BUF	1024 //1k buffer
 
+#define IDX_TCP_MSG_TYPE	0
+
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>

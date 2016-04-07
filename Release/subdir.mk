@@ -4,16 +4,19 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
+../CY8C9560A.c \
 ../I2CFunctions.c \
 ../MainFile.c \
 ../TCPComm.c 
 
 OBJS += \
+./CY8C9560A.o \
 ./I2CFunctions.o \
 ./MainFile.o \
 ./TCPComm.o 
 
 C_DEPS += \
+./CY8C9560A.d \
 ./I2CFunctions.d \
 ./MainFile.d \
 ./TCPComm.d 

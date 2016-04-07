@@ -1,6 +1,7 @@
 
 #include "TCPComm.h"
 #include "global.h"
+#include "CY8C9560A.h"
 
 extern ProgamOptions programOptions;
 TCPListenerParams tcpListenerParams;
@@ -103,7 +104,6 @@ void TCPComm_ReadFromConnectedCon(TCPConnectedParams *tcpParams)
 
 	while(1)
 	{
-
 	    res = read(tcpParams->sockFD, readBuf, SIZE_TCP_READ_BUF);
 	    if (res < 0)
 	    {
@@ -112,7 +112,30 @@ void TCPComm_ReadFromConnectedCon(TCPConnectedParams *tcpParams)
 	    else
 	    {
 	    	printf("Received %d bytes",res);
-	    	//do all post presseccing eg write, read from i2c here.
+
+	    	switch(readBuf[IDX_TCP_MSG_TYPE])
+	    	{
+	    	case msgTypeCommand:
+	    		HandleMsg_Command(readBuf);
+	    		break;
+	    	case msgTypeOpenDev:
+	    		HandleMsg_OpenDev(readBuf);
+	    		break;
+	    	case msgTypeCloseDevice:
+	    		HandleMsg_CloseDev(readBuf);
+	    		break;
+	    	case msgTypeACK:
+	    		HandleMsg_ACK(readBuf);
+	    		break;
+	    	case msgTypeNACK:
+	    		HandleMsg_NACK(readBuf);
+	    		break;
+	    	default:
+	    		printf("\n%s: WARNING: Invalid tcpMsgType received [%u]",
+	    				__PRETTY_FUNCTION__, readBuf[IDX_TCP_MSG_TYPE]);
+	    		fflush(stdout);
+	    	}
+
 	    	TCPComm_SendResponseToUser(tcpParams, 0);
 	    }
 	}
