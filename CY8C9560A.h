@@ -18,7 +18,10 @@ enum DeviceCommandTypes
 	cmdTypePortOperation,
 	cmdTypePWMOperation,
 	cmdTypeMiscOperation,
-	cmdTypeEEPROMOperation
+	cmdTypePinOperation,
+	cmdTypePOROperation,
+	cmdTypeIntStatusOperation,
+	cmdTypeEEPROMOperation = 0x81
 };
 
 enum GPortOperations
@@ -42,10 +45,12 @@ enum GPortConfigs
 enum PWMOperations
 {
 	pwmOperationNULL,
-	pwmOperationSetClkSource,
+	pwmOperationClkSource,
+	pwmOperationPrgmDivider,
+	pwmOperationIntEdge,
+	pwmOperationPeriod,
 	pwmOperationSetIntGen,
-	pwmOperationSetPeriod,
-	pwmOperationSetDutyCycle
+	pwmOperationSetPulsewidth
 };
 
 enum MiscOperatins
@@ -56,6 +61,31 @@ enum MiscOperatins
 	miscOperationSetPOR
 };
 
+enum PinOperations
+{
+	pinOperationNULL,
+	pinOperationRead,
+	pinOperationwrite,
+	pinOperationConfig
+};
+
+enum PinConfigs
+{
+	pinConfigNULL,
+	pinConfigIntMask,
+	pinConfigPWMOut,
+	pinConfigInvertion,
+	pinConfigPinDirection,
+	pinConfigDriveMode
+};
+
+enum POROperation
+{
+	porOperationNULL,
+	porOperationConfig,
+	porOperationFactoryReset
+};
+
 enum EEPROMOperations
 {
 	eepromOperationNULL,
@@ -63,13 +93,40 @@ enum EEPROMOperations
 	eepromOperationRead
 };
 
+enum IntStatusOperation
+{
+	intStatusOperationNULL,
+	intStatusOperationRead,
+	intStatusOperationwrite
+};
+
 #define IDX_TCP_MSG_CMD_TPE				1
 #define IDX_TCP_MSG_DEV_NAME			1
+
 #define IDX_TCP_MSG_PORT_OP_PORTNO		2 //Port operation port number
 #define IDX_TCP_MSG_PORT_OP_CODE		3 //Port operation code eg write, read etc
 #define IDX_TCP_MSG_PORT_OP_VALUE		4 //Port operation value eg what needs to be written to port.
 #define IDX_TCP_MSG_PORT_CONFIG_CODE	4 //Port configuration
 #define IDX_TCP_MSG_PORT_CONFIG_VAL		5 //Port configuration
+
+#define IDX_TCP_MSG_PWM_OP_PWMNO		2 //Port operation port number
+#define IDX_TCP_MSG_PWM_OP_CODE			3 //Port operation code eg write, read etc
+#define IDX_TCP_MSG_PWM_OP_VALUE		4 //Port operation value eg what needs to be written to port.
+
+#define IDX_TCP_MSG_PIN_OP_PORTNO		2 //Pin operation port number
+#define IDX_TCP_MSG_PIN_OP_PINMASK		3 //Pin operation pin mask
+#define IDX_TCP_MSG_PIN_OP_CODE			4 //Pin operation code eg write, read etc
+#define IDX_TCP_MSG_PIN_OP_VALUE		5 //Pin operation value eg what needs to be written to port.
+#define IDX_TCP_MSG_PIN_CONFIG_CODE		5 //Pin configuration
+#define IDX_TCP_MSG_PIN_CONFIG_VAL		6 //Pin configuration
+
+#define IDX_TCP_MSG_INT_ST_OP_PORTNO	2 //Port operation port number
+#define IDX_TCP_MSG_INT_ST_OP_VALUE		3 //Port operation value eg what needs to be written to port.
+
+#define PIN_HIGH			0x01
+#define PIN_LOW				0x00
+#define PORT_NO_ALL_PORTS	0xFF
+#define MAX_NUM_GPORTS		8
 
 enum RegAdressInport
 {
@@ -126,10 +183,10 @@ enum RegAddressConfigPort
 enum RegAddressConfigPWM
 {
 	regAddrPWMSelect = 0x28,
-	regAddrConfigPWM,
-	regAddrPeriodPWM,
-	regAddrPulseWidthPWM,
-	regAddrProgrammableDivider
+	regAddrPWMConfig,
+	regAddrPWMPeriod,
+	regAddrPWMPulseWidth,
+	regAddrPWMProgrammableDivider
 };
 
 enum RegAddressOthers
@@ -147,7 +204,10 @@ int HandleMsg_ACK(char *msg);
 int HandleMsg_NACK(char *msg);
 
 int HandleCmd_PortOperation(char *msg);
+int HandleCmd_PinOperation(char *msg);
 int HandleCmd_PWMOperation(char *msg);
 int HandleCmd_MiscOperation(char *msg);
+int HandleCmd_POROperation(char *msg);
+int HandleCmd_IntStausOperation(char *msg);
 int HandleCmd_EEPRomOperation(char *msg);
 #endif // CY8C9560A_H_

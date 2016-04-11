@@ -11,6 +11,7 @@
 #include "I2CFunctions.h"
 #include "global.h"
 static int File;
+
 int OpenI2C(char *devName)
 {
 	int Adapter_No = 2; /* probably dynamically determined */
@@ -34,22 +35,37 @@ void DeviceAddress(int addr)
 		exit(1);
 
 }
-void WriteI2C(char *Buffer)
+
+#ifdef _I2C_INTERFACE_
+
+void TxToDevice(char *Vals,char* Reg)
 {
 	/*
-	Buffer[0] = //register;
-	Buffer[1] = //Val;
-	Buffer[2] = //Val;
+	 * Vals : Values to be wriiten to the reg
+	 * Reg	: Register address
 	*/
-	if ( write(File, Buffer, 3) != 3)
+	char *Buffer;
+	int Len = strlen(Vals) + strlen(Reg);
+	Buffer = (char *)malloc( Len * (sizeof(char)) );
+	memcpy(Buffer,Reg,strlen(Reg));
+	memcpy(&Buffer[strlen(Reg)],Vals,strlen(Vals));
+
+	if ( write(File, Buffer, Len) != Len)
 		printf("\n Error Occurred in Writing to Device");	
 }
 
-void ReadI2C(char *Buffer)
+void RxToDevice(char *Reg,char * ReadVals,int Len)
 {
 	/*
-		Buffer will have the read Value (Byte)
+	 * Reg : Register to be read
+	 * ReadVals : will have the read Value (Byte)
+	 * Len : Len of data to be read
+	 * Note: ReadVals should be of atleast ReadVals' size
 	*/
-	if (read(File, Buffer, 1) != 1)
+	TxToDevice(NULL,Reg);
+	if (read(File, ReadVals, Len) != Len)
 		printf("Error Occurred in Reading from Device ");
 }
+
+#endif
+

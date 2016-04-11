@@ -18,7 +18,7 @@ char addressListIntStatus[8] ={regAddrintStatusPort0,regAddrintStatusPort1,regAd
 int HandleMsg_Command(char *msg)
 {
 	int retVal = -1;
-	switch(msg[IDX_TCP_MSG_CMD_TPE])
+	switch((unsigned char)(msg[IDX_TCP_MSG_CMD_TPE]))
 	{
 	case cmdTypePortOperation:
 		HandleCmd_PortOperation(msg);
@@ -28,6 +28,12 @@ int HandleMsg_Command(char *msg)
 		break;
 	case cmdTypeMiscOperation:
 		HandleCmd_MiscOperation(msg);
+		break;
+	case cmdTypePinOperation:
+		HandleCmd_PinOperation(msg);
+		break;
+	case cmdTypePOROperation:
+		HandleCmd_POROperation(msg);
 		break;
 	case cmdTypeEEPROMOperation:
 		HandleCmd_EEPRomOperation(msg);
@@ -67,43 +73,225 @@ int HandleMsg_NACK(char *msg)
 int HandleCmd_PortOperation(char *msg)
 {
 	char portNo = msg[IDX_TCP_MSG_PORT_OP_PORTNO];
-	char portOperation = msg[IDX_TCP_MSG_PORT_OP_CODE];
-	char portValue = msg[IDX_TCP_MSG_PORT_OP_VALUE];
-	char configCode = msg[IDX_TCP_MSG_PORT_CONFIG_CODE];
-	char configValue = msg[IDX_TCP_MSG_PORT_CONFIG_VAL];
-	char msgOnI2C[SIZE_MAX_OPTION_STR];
+	char regValue[SIZE_MAX_OPTION_STR];
+	char regAddr[SIZE_MAX_OPTION_STR];
 
-	switch(portOperation)
+	regValue[0] = msg[IDX_TCP_MSG_PORT_OP_VALUE];
+	regValue[1] = 0;
+	regAddr[0] = addressListOutport[(int)portNo];
+	regAddr[1] = 0;
+
+	switch((unsigned char)(msg[IDX_TCP_MSG_PORT_OP_CODE]))
 	{
 	case portOperationwrite:
-		msgOnI2C[0] = addressListOutport[(int)portNo];
-		msgOnI2C[1] = portValue;
-		WriteI2C(msgOnI2C);
+		TxToDevice(regValue, regAddr);
+		break;
+
+	case portOperationRead:
+		RxToDevice(regValue, regAddr, 1);
+		break;
+
+	case portOperationConfig:
+		regValue[0] = portNo;
+		regAddr[0] = regAddrPortSelect;
+		regAddr[1] = 0;
+		TxToDevice(regValue, regAddr);
+		switch((unsigned char)(msg[IDX_TCP_MSG_PORT_CONFIG_CODE]))
+		{
+		case portConfigIntMask:			regAddr[0] = regAddrIntMask;		break;
+		case portConfigPWMOut:			regAddr[0] = regAddrPWMPortOut;	break;
+		case portConfigInvertion:		regAddr[0] = regAddrInversion;		break;
+		case portConfigPinDirection:	regAddr[0] = regAddrPinDirection;	break;
+		//case portConfigDriveMode:		msgOnI2C[0] = regAddrDriveMode;	break;
+		}
+		regValue[0] = msg[IDX_TCP_MSG_PORT_CONFIG_VAL];
+		TxToDevice(regValue, regAddr);
+		break;
+	}
+	return -1;
+}
+
+int HandleCmd_PinOperation(char *msg)
+{
+	char portNo = msg[IDX_TCP_MSG_PIN_OP_PORTNO];
+	char pinMask = msg[IDX_TCP_MSG_PIN_OP_PINMASK];
+	char regValue[SIZE_MAX_OPTION_STR];
+	char regAddr[SIZE_MAX_OPTION_STR];
+	char newVal = 0;
+	char oldVal = 0;
+	char portRegAddr = addressListOutport[(int)portNo];
+
+	switch((unsigned char)(msg[IDX_TCP_MSG_PORT_OP_CODE]))
+	{
+	case portOperationwrite:
+		regAddr[0] = portRegAddr;
+		regAddr[1] = 0;
+		//RxToDevice(regValue, regAddr, 1);
+		oldVal = regValue[0];
+		oldVal &= ~pinMask; //clear the bits of old val accoriding to pinMask
+
+		newVal = msg[IDX_TCP_MSG_PIN_OP_VALUE] == PIN_HIGH? 0xFF: 0x00;
+		newVal &= pinMask; //all bits except the mask are cleared. Masked pins made accornding to value
+
+		newVal |= oldVal; //Or teh newVal wih Oldval and store to newVal
+		regValue[0] = newVal;
+		TxToDevice(regValue, regAddr);
 		break;
 
 	case portOperationRead:
 		break;
 
 	case portOperationConfig:
-		switch(configCode)
+		regValue[0] = portNo;
+		regAddr[0] = regAddrPortSelect;
+		regAddr[1] = 0;
+		TxToDevice(regValue, regAddr);
+
+		switch((unsigned char)(msg[IDX_TCP_MSG_PIN_CONFIG_CODE]))
 		{
-		case portConfigIntMask:			msgOnI2C[2] = regAddrIntMask;		break;
-		case portConfigPWMOut:			msgOnI2C[2] = regAddrPWMPortOut;	break;
-		case portConfigInvertion:		msgOnI2C[2] = regAddrInversion;		break;
-		case portConfigPinDirection:	msgOnI2C[2] = regAddrPinDirection;	break;
+		case portConfigIntMask:			regAddr[0] = regAddrIntMask;		break;
+		case portConfigPWMOut:			regAddr[0] = regAddrPWMPortOut;	break;
+		case portConfigInvertion:		regAddr[0] = regAddrInversion;		break;
+		case portConfigPinDirection:	regAddr[0] = regAddrPinDirection;	break;
 		//case portConfigDriveMode:		msgOnI2C[0] = regAddrDriveMode;	break;
 		}
-		msgOnI2C[0] = regAddrPortSelect;
-		msgOnI2C[1] = portNo;
-		WriteI2C(msgOnI2C);
-		msgOnI2C[3] = configValue;
-		WriteI2C(&(msgOnI2C[2]));
+
+		RxToDevice(regValue, regAddr, 1);
+		oldVal = regValue[0];
+		oldVal &= ~pinMask; //clear the bits of old val accoriding to pinMask
+
+		newVal = msg[IDX_TCP_MSG_PIN_CONFIG_VAL] == PIN_HIGH? 0xFF: 0x00;
+		newVal &= pinMask; //all bits except the mask are cleared. Masked pins made accornding to value
+
+		newVal |= oldVal; //Or teh newVal wih Oldval and store to newVal
+		regValue[0] = newVal;
+		TxToDevice(regValue, regAddr);
+		break;
+	}
+	return -1;
+}
+
+int HandleCmd_IntStausOperation(char *msg)
+{
+	char portNo = msg[IDX_TCP_MSG_PORT_OP_PORTNO];
+	char regValue[SIZE_MAX_OPTION_STR];
+	char regAddr[SIZE_MAX_OPTION_STR];
+	int i=0;
+	int numPortsToRead = 1;
+
+	if(portNo != PORT_NO_ALL_PORTS)
+	{
+		regValue[0] = msg[IDX_TCP_MSG_INT_ST_OP_VALUE];
+		regValue[1] = 0;
+		regAddr[0] = addressListIntStatus[(int)portNo];
+		regAddr[1] = 0;
+	}
+	else
+	{
+		for(i=0; i<MAX_NUM_GPORTS; i++)
+		{
+			regAddr[i] = addressListIntStatus[i];
+			regValue[i] = msg[IDX_TCP_MSG_INT_ST_OP_VALUE];
+		}
+		regAddr[i] = 0;
+		numPortsToRead = 8;
+	}
+
+	switch((unsigned char)(msg[IDX_TCP_MSG_PORT_OP_CODE]))
+	{
+	case intStatusOperationwrite:
+		TxToDevice(regValue, regAddr);
+		break;
+
+	case intStatusOperationRead:
+		RxToDevice(regValue, regAddr, numPortsToRead);
 		break;
 	}
 	return -1;
 }
 
 int HandleCmd_PWMOperation(char *msg)
+{
+	char pwmNo = msg[IDX_TCP_MSG_PWM_OP_PWMNO];
+	char regValue[SIZE_MAX_OPTION_STR];
+	char regAddr[SIZE_MAX_OPTION_STR];
+	char oldValConfigReg = 0;
+	char newValConfigReg = 0;
+
+	//Select pwm for current operation
+	regValue[0] = pwmNo;
+	regAddr[0] = regAddrPWMSelect;
+	regAddr[1]= 0;
+	TxToDevice(regValue, regAddr);
+/*
+	switch((unsigned char)(msg[IDX_TCP_MSG_PWM_OP_CODE]))
+	{
+	case pwmOperationClkSource:
+		regAddr[0] = regAddrPWMConfig;
+		regAddr[1]= 0;
+		RxToDevice(regValue, regAddr, 1);
+		oldValConfigReg = regValue[0];
+		oldValConfigReg &= 0xF8;
+
+		newValConfigReg = msg[IDX_TCP_MSG_PWM_OP_VALUE];
+		newValConfigReg &= 0x07;
+
+		newValConfigReg |= oldValConfigReg; //Or both the new and old values to get the new one
+
+		TxToDevice(regValue, regAddr);
+		break;
+
+	case pwmOperationIntEdge:
+		regAddr[0] = regAddrPWMConfig;
+		regAddr[1]= 0;
+		RxToDevice(regValue, regAddr, 1);
+		oldValConfigReg = regValue[0];
+		oldValConfigReg &= 0xF7;
+
+		newValConfigReg = msg[IDX_TCP_MSG_PWM_OP_VALUE] == 0x00? 0x00: 0x08;
+
+		newValConfigReg |= oldValConfigReg; //Or both the new and old values to get the new one
+
+		TxToDevice(regValue, regAddr);
+		break;
+
+	case pwmOperationPrgmDivider:
+		regAddr[0] = regAddrPWMProgrammableDivider;
+		regAddr[1]= 0;
+
+	case pwmOperationSetPeriod:
+		regValue[0] = msg[IDX_TCP_MSG_PWM_OP_VALUE];
+		regAddr[0] = regAddrPWMPeriod;
+		regAddr[1]= 0;
+		TxToDevice(regValue, regAddr);
+		break;
+
+	case portOperationRead:
+		RxToDevice(regValue, regAddr, 1);
+		break;
+
+	case portOperationConfig:
+		regValue[0] = portNo;
+		regAddr[0] = regAddrPortSelect;
+		regAddr[1] = 0;
+		TxToDevice(regValue, regAddr);
+		switch((unsigned char)(msg[IDX_TCP_MSG_PORT_CONFIG_CODE]))
+		{
+		case portConfigIntMask:			regAddr[0] = regAddrIntMask;		break;
+		case portConfigPWMOut:			regAddr[0] = regAddrPWMPortOut;	break;
+		case portConfigInvertion:		regAddr[0] = regAddrInversion;		break;
+		case portConfigPinDirection:	regAddr[0] = regAddrPinDirection;	break;
+		//case portConfigDriveMode:		msgOnI2C[0] = regAddrDriveMode;	break;
+		}
+		regValue[0] = msg[IDX_TCP_MSG_PORT_CONFIG_VAL];
+		TxToDevice(regValue, regAddr);
+		break;
+	}
+*/
+	return -1;
+}
+
+int HandleCmd_POROperation(char *msg)
 {
 	return -1;
 }
