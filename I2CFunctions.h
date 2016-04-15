@@ -1,12 +1,20 @@
 #ifndef _I2C_H
 #define _I2C_H
-
+#include <linux/i2c-dev.h>
 
 
 #define BYTE 8
 #define WORD 16
-int OpenI2C(char *devName);
-void DeviceAddress(int addr);
+
+#define ADDR_ENABLE_REGISTER 0x2D
+#define ADDR_MULTI_IO_PORT_DEVICE 0x20
+#define ADDR_EEPROM 0x50
+int  OpenI2C(char *devName);
+void CloseI2C();
+int  DeviceAddress(int addr);
+int  EepromDisable();
+int  EepromReadOnly();
+int  EepromWriteEnable();
 
 #define _I2C_INTERFACE_
 
@@ -14,14 +22,15 @@ void DeviceAddress(int addr);
 
 //void TxToDevice(char *Buffer);
 //void RxFromDevice(char *Buffer);
-void TxToDevice(char *Vals,char* Reg);
-void RxToDevice(char *Reg,char * ReadVals,int Len);
+int TxToDevice(unsigned char *Vals,int ValsLen,unsigned char* Reg,int RegLen);
+int  RxToDevice(unsigned char *Reg,int RegLen,unsigned char * ReadVals,int Len);
 
 #else
+void TxToDevice(char *Vals,int ValsLen,char* Reg,int RegLen);
+void RxToDevice(char *Reg,int RegLen,char * ReadVals,int Len);
 
-
-#ifndef _LINUX_I2C_DEV_H
-#define _LINUX_I2C_DEV_H
+#ifdef _LINUX_I2C_DEV_H
+//#define _LINUX_I2C_DEV_H
 
 #include <linux/types.h>
 #include <sys/ioctl.h>
@@ -137,7 +146,7 @@ union i2c_smbus_data {
 
 
 /* This is the structure as used in the I2C_SMBUS ioctl call */
-struct i2c_smbus_ioctl_data {
+/*struct i2c_smbus_ioctl_data {
 	__u8 read_write;
 	__u8 command;
 	__u32 size;
@@ -145,10 +154,10 @@ struct i2c_smbus_ioctl_data {
 };
 
 /* This is the structure as used in the I2C_RDWR ioctl call */
-struct i2c_rdwr_ioctl_data {
+/*struct i2c_rdwr_ioctl_data {
 	struct i2c_msg *msgs;	/* pointers to i2c_msgs */
 	__u32 nmsgs;			/* number of i2c_msgs */
-};
+//};
 
 #define  I2C_RDRW_IOCTL_MAX_MSGS	42
 
