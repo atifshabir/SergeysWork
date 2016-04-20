@@ -40,6 +40,10 @@
 #define IDX_TCP_MSG_EEPROM_OP_LEN		10 //Len in bytes for eeprom operation
 #define IDX_TCP_MSG_EEPROM_OP_DATA		12 //Data in eeprom operation
 
+#define IDX_TCP_MSG_MPORT_REG_OP_CODE	7 //Opertion code for multi-port reg operation
+#define IDX_TCP_MSG_MPORT_REG_OP_ADDR	8 //Address for multi-port reg operation
+#define IDX_TCP_MSG_MPORT_REG_OP_DATA	9 //Data in multi-port reg operation
+
 #define PIN_HIGH			0x01
 #define PIN_LOW				0x00
 #define PORT_NO_ALL_PORTS	0xFF
@@ -64,6 +68,7 @@ enum DeviceCommandTypes
 	cmdTypePinOperation,
 	cmdTypePOROperation,
 	cmdTypeIntStatusOperation,
+	cmdTypeMPortRegOperation,
 	cmdTypeEEPROMOperation = 0x81
 };
 
@@ -122,7 +127,8 @@ enum POROperation
 {
 	porOperationNULL,
 	porOperationSaveConfig,
-	porOperationFactoryReset
+	porOperationFactoryReset,
+	porOperationPORReset
 };
 
 enum EEPROMOperations
@@ -130,6 +136,13 @@ enum EEPROMOperations
 	eepromOperationNULL,
 	eepromOperationWrite,
 	eepromOperationRead
+};
+
+enum MPortRegOperations
+{
+	mportRegOperationNULL,
+	mportRegOperationWrite,
+	mportRegOperationRead
 };
 
 enum IntStatusOperation
@@ -231,5 +244,8 @@ int HandleCmd_MiscOperation(unsigned char *msg);
 int HandleCmd_POROperation(unsigned char *msg);
 int HandleCmd_IntStausOperation(unsigned char *msg);
 int HandleCmd_EEPRomOperation(unsigned char *msg);
+int HandleCmd_MPortRegOperation(unsigned char *msg);
+
+void IncrementEEPROMAddr(unsigned char *regAddr);
 
 #endif // CY8C9560A_H_

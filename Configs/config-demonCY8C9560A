@@ -1,0 +1,6 @@
+#config_key		config_value
+DEV_Name		/dev/i2c-0
+TCP_Listen_IP	127.0.0.1
+TCP_Listen_Port	50001
+Log_File		/usr/local/demonLog.txt
+

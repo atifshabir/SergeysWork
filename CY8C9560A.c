@@ -18,19 +18,37 @@ unsigned char addressListIntStatus[8] ={regAddrintStatusPort0,regAddrintStatusPo
 								regAddrintStatusPort4, regAddrintStatusPort5, regAddrintStatusPort6, regAddrintStatusPort7};
 
 unsigned int flagI2CDevIsOpen = FLAG_FALSE;
+//unsigned int flagI2CDevIsOpen = FLAG_TRUE;
 unsigned int flagCurrentDevAddr = devAddrNULL;
 
 extern char I2CDevName[];
 extern FILE *logFile;
 
-int SendValToMultiportReg(unsigned char regAddr, unsigned char value)
+int SendValToMultiportReg(unsigned char addr, unsigned char value)
 {
-	return TxToDevice(&value, 1,  &regAddr,1);
+	unsigned char regAddr[4];
+	unsigned char regVal[4];
+	regAddr[0] = addr;
+	regAddr[1] = 0;
+	regVal[0] = value;
+	fprintf(logFile, "\n%u; Write to multiport reg: addr[0x%2X], value[0x%2X]",
+			GetMillis(), regAddr[0], regVal[0]);
+	return TxToDevice(regVal, 1,  regAddr, 1);
 }
 
-int RxValFromMultiportReg(unsigned char regAddr, unsigned char *value)
+int RxValFromMultiportReg(unsigned char addr, unsigned char *value)
 {
-	return RxToDevice(&regAddr, 1, value, 1);
+	int retVal = 0;
+	unsigned char regAddr[4];
+	unsigned char regVal[4];
+	regAddr[0] = addr;
+	regAddr[1] = 0;
+	retVal =  RxToDevice(regAddr, 1, regVal, 1);
+	*value = regVal[0];
+	fprintf(logFile, "\n%u; Read from multiport reg: addr[0x%2X], value[0x%2X]",
+			GetMillis(),regAddr[0], regVal[0]);
+
+	return retVal;
 }
 
 int HandleMsg_Command(unsigned char *msg)
@@ -43,16 +61,16 @@ int HandleMsg_Command(unsigned char *msg)
 		{
 			if(flagCurrentDevAddr != devAddrMultiport)
 			{
-				DeviceAddress(ADDR_MULTI_IO_PORT_DEVICE);
-				flagCurrentDevAddr = devAddrMultiport;
+				if(DeviceAddress(ADDR_MULTI_IO_PORT_DEVICE) < 0) {return errCodeDevAddrFailed;}
+				else { flagCurrentDevAddr = devAddrMultiport; }
 			}
 		}
 		else
 		{
 			if(flagCurrentDevAddr != devAddrEEPROM)
 			{
-				DeviceAddress(ADDR_EEPROM);
-				flagCurrentDevAddr = devAddrEEPROM;
+				if(DeviceAddress(ADDR_EEPROM) < 0) {return errCodeDevAddrFailed;}
+				else { flagCurrentDevAddr = devAddrEEPROM; }
 			}
 		}
 
@@ -73,13 +91,18 @@ int HandleMsg_Command(unsigned char *msg)
 		case cmdTypePOROperation:
 			retVal = HandleCmd_POROperation(msg);
 			break;
+		case cmdTypeIntStatusOperation:
+			retVal = HandleCmd_IntStausOperation(msg);
+			break;
+		case cmdTypeMPortRegOperation:
+			retVal = HandleCmd_MPortRegOperation(msg);
+			break;
 		case cmdTypeEEPROMOperation:
 			retVal = HandleCmd_EEPRomOperation(msg);
 			break;
 		default:
 			retVal = errCodeInvalidCmd;
-    		fprintf(logFile, "\n%s;%s; Msg type invalid [0x%X]",
-    				__DATE__, __TIME__,msg[IDX_TCP_MSG_CMD_TPE]);
+    		fprintf(logFile, "\n%u; Msg type invalid [0x%X]", GetMillis(),msg[IDX_TCP_MSG_CMD_TPE]);
     		fflush(logFile);
     		printf("\n%s: WARNING: Invalid tcpMsgCmdType received [%u]",
 					__PRETTY_FUNCTION__, msg[IDX_TCP_MSG_CMD_TPE]);
@@ -88,8 +111,7 @@ int HandleMsg_Command(unsigned char *msg)
 	}
 	else
 	{
-		fprintf(logFile, "\n%s;%s; Dev command recived while dev not opened",
-		__DATE__, __TIME__);
+		fprintf(logFile, "\n%u; Dev command recived while dev not opened", GetMillis());
 		fflush(logFile);
 		retVal = errCodeI2CDevNotOpened;
 	}
@@ -111,7 +133,7 @@ int HandleMsg_OpenDev(unsigned char *msg)
 		{
 			EepromWriteEnable();
 			flagI2CDevIsOpen = FLAG_TRUE;
-			fprintf(logFile, "\n%s;%s; Dev opened", __DATE__, __TIME__);
+			fprintf(logFile, "\n%u; Dev opened", GetMillis());
 			fflush(logFile);
 		}
 	}
@@ -128,13 +150,13 @@ int HandleMsg_CloseDev(unsigned char *msg)
 	if(flagI2CDevIsOpen == FLAG_TRUE)
 	{
 		CloseI2C();
-		fprintf(logFile, "\n%s;%s; Dev closed", __DATE__, __TIME__);
+		fprintf(logFile, "\n%u; Dev closed", GetMillis());
 		fflush(logFile);
 		return errCodeSucces;
 	}
 	else
 	{
-		fprintf(logFile, "\n%s;%s; CloseDev recived while dev not opened", __DATE__, __TIME__);
+		fprintf(logFile, "\n%u; CloseDev recived while dev not opened", GetMillis());
 		fflush(logFile);
 		return errCodeI2CDevNotOpened;
 	}
@@ -159,6 +181,12 @@ int HandleCmd_PortOperation(unsigned char *msg)
 	int res = 0;
 	unsigned char value = 0;
 	unsigned char regAddrForConfig = 0;
+
+	if(portNo > 7)
+	{
+		retVal = errCodeInvalidPortNo;
+		return retVal;
+	}
 
 	switch(msg[IDX_TCP_MSG_PORT_OP_CODE])
 	{
@@ -193,8 +221,7 @@ int HandleCmd_PortOperation(unsigned char *msg)
 
 	default:
 		retVal = errCodeInvalidPortOperation;
-		fprintf(logFile, "\n%s;%s; Port operation invalid [0x%X]",
-				__DATE__, __TIME__,msg[IDX_TCP_MSG_PORT_OP_CODE]);
+		fprintf(logFile, "\n%u; Port operation invalid [0x%X]",	GetMillis(),msg[IDX_TCP_MSG_PORT_OP_CODE]);
 		fflush(logFile);
 
 	}
@@ -211,7 +238,13 @@ int HandleCmd_PinOperation(unsigned char *msg)
 	unsigned char oldPortVal = 0;
 	unsigned char regAddrForPortConfig = 0;
 
-	switch(msg[IDX_TCP_MSG_PORT_OP_CODE])
+	if(portNo > 7)
+	{
+		retVal = errCodeInvalidPortNo;
+		return retVal;
+	}
+
+	switch(msg[IDX_TCP_MSG_PIN_OP_CODE])
 	{
 	case pinOperationwrite:
 		res = RxValFromMultiportReg(addressListOutport[(int)portNo], &oldPortVal);
@@ -229,7 +262,7 @@ int HandleCmd_PinOperation(unsigned char *msg)
 	case pinOperationRead:
 		res = RxValFromMultiportReg(addressListOutport[(int)portNo], &oldPortVal);
 		retVal = res < 0 ? errCodeReadFromDevFailed : errCodeSucces;
-		oldPortVal &= ~pinMask; //clear the bits of old val accoriding to pinMask
+		oldPortVal &= pinMask; //clear the bits of old val accoriding to pinMask
 		msg[IDX_TCP_MSG_PIN_OP_VALUE] = oldPortVal;
 		break;
 
@@ -263,12 +296,11 @@ int HandleCmd_PinOperation(unsigned char *msg)
 
 	default:
 		retVal = errCodeInvalidPinOperation;
-		fprintf(logFile, "\n%s;%s; Pin operation invalid [0x%X]",
-				__DATE__, __TIME__,msg[IDX_TCP_MSG_PORT_OP_CODE]);
+		fprintf(logFile, "\n%u; Pin operation invalid [0x%X]", GetMillis(),msg[IDX_TCP_MSG_PIN_OP_CODE]);
 		fflush(logFile);
 
 	}
-	return RESULT_SUCCESS;
+	return retVal;
 }
 
 int HandleCmd_IntStausOperation(unsigned char *msg)
@@ -321,7 +353,7 @@ int HandleCmd_IntStausOperation(unsigned char *msg)
 	}
 	else
 	{
-		retVal = errCodeInvalidParams;
+		retVal = errCodeInvalidPortNo;
 	}
 
 	return retVal;
@@ -341,6 +373,12 @@ int HandleCmd_PWMOperation(unsigned char *msg)
 	unsigned char period = msg[IDX_TCP_MSG_PWM_OP_PERIOD];
 	unsigned char pulseWidth = msg[IDX_TCP_MSG_PWM_OP_PULSE_WIDTH];
 	unsigned char intEdge = msg[IDX_TCP_MSG_PWM_OP_INT_EDGE];
+
+	if(pwmNo > 15)
+	{
+		retVal = errCodeInvalidPWMNo;
+		return retVal;
+	}
 
 	switch(pwmOpCode)
 	{
@@ -468,6 +506,11 @@ int HandleCmd_POROperation(unsigned char *msg)
 		retVal = res < 0 ? errCodeWriteToDevFailed : errCodeSucces;
 		break;
 
+	case porOperationPORReset:
+		res = SendValToMultiportReg(regAddrCommand, 0x07);
+		retVal = res < 0 ? errCodeWriteToDevFailed : errCodeSucces;
+		break;
+
 	default:
 		retVal = errCodeInvalidPOROperation;
 	}
@@ -479,32 +522,92 @@ int HandleCmd_MiscOperation(unsigned char *msg)
 	return RESULT_SUCCESS;
 }
 
+void IncrementEEPROMAddr(unsigned char *regAddr)
+{
+	if(regAddr[1] == 0xFF)
+	{
+		regAddr[1] = 0x00;
+		regAddr[0] ++;
+	}
+	else
+	{
+		regAddr[1] ++;
+	}
+}
+
 int HandleCmd_EEPRomOperation(unsigned char *msg)
 {
 	unsigned char regValue[SIZE_MAX_OPTION_STR];
 	unsigned char regAddr[SIZE_MAX_OPTION_STR];
 	int retVal = errCodeSucces;
 	int res = 0;
+	unsigned int i = 0;
+	unsigned int len = (msg[IDX_TCP_MSG_EEPROM_OP_LEN] << 8)
+						+ msg[IDX_TCP_MSG_EEPROM_OP_LEN+1];
 
 	regAddr[0] = msg[IDX_TCP_MSG_EEPROM_OP_ADDR];
 	regAddr[1] = msg[IDX_TCP_MSG_EEPROM_OP_ADDR+1];
-	regValue[0] = msg[IDX_TCP_MSG_EEPROM_OP_DATA];
 
 	switch(msg[IDX_TCP_MSG_EEPROM_OP_CODE])
 	{
 	case eepromOperationWrite:
-		res  = TxToDevice(regValue,1,regAddr,2);
-		retVal = res < 0? errCodeWriteToDevFailed: errCodeSucces;
+		fprintf(logFile, "\n%u; EEPROM write len [%u]; Data:\n", GetMillis(),len);
+		for(i = 0; i < len; i++)
+		{
+			regValue[0] = msg[IDX_TCP_MSG_EEPROM_OP_DATA+i];
+			fprintf(logFile, "[0x%2X @ 0x%2X%2X]",regValue[0], regAddr[0], regAddr[1]);
+			res  = TxToDevice(regValue,1,regAddr,2);
+			if(res < 0) {retVal = errCodeWriteToDevFailed; break; }
+			IncrementEEPROMAddr(regAddr);
+		}
 		break;
 
 	case eepromOperationRead:
-		res = RxToDevice(regAddr,2, regValue, 1);
-		retVal = res < 0? errCodeReadFromDevFailed: errCodeSucces;
-		msg[IDX_TCP_MSG_EEPROM_OP_DATA] = regValue[0];
+		fprintf(logFile, "\n%u; EEPROM read len [%u]; Data:\n", GetMillis(),len);
+		for(i = 0; i < len; i++)
+		{
+			res = RxToDevice(regAddr,2, regValue, 1);
+			if(res < 0) {retVal = errCodeReadFromDevFailed; break; }
+
+			fprintf(logFile, "[0x%2X @ 0x%2X%2X]",regValue[0], regAddr[0], regAddr[1]);
+			msg[IDX_TCP_MSG_EEPROM_OP_DATA+i] = regValue[0];
+			IncrementEEPROMAddr(regAddr);
+		}
 		break;
 
 	default:
 		retVal = errCodeInvalidEEPROMOperation;
+	}
+
+	fflush(logFile);
+	return retVal;
+}
+
+int HandleCmd_MPortRegOperation(unsigned char *msg)
+{
+	unsigned char regValue;
+	unsigned char regAddr;
+	int retVal = errCodeSucces;
+	int res = 0;
+
+	regAddr = msg[IDX_TCP_MSG_MPORT_REG_OP_ADDR];
+	regValue = msg[IDX_TCP_MSG_MPORT_REG_OP_DATA];
+
+	switch(msg[IDX_TCP_MSG_MPORT_REG_OP_CODE])
+	{
+	case mportRegOperationWrite:
+		res  = SendValToMultiportReg(regAddr, regValue);
+		retVal = res < 0? errCodeWriteToDevFailed: errCodeSucces;
+		break;
+
+	case mportRegOperationRead:
+		res = RxValFromMultiportReg(regAddr, &regValue);
+		retVal = res < 0? errCodeReadFromDevFailed: errCodeSucces;
+		msg[IDX_TCP_MSG_MPORT_REG_OP_DATA] = regValue;
+		break;
+
+	default:
+		retVal = errCodeInalidMPortRegOperation;
 	}
 
 	return retVal;

@@ -38,7 +38,10 @@ enum ErrorCods
 	errCodeI2CDevAlreadyOpened,
 	errCodeI2CDevNotOpened,
 	errCodeInvalidEEPROMOperation,
-	errCodeDevAddrFailed
+	errCodeDevAddrFailed,
+	errCodeInalidMPortRegOperation
 };
+
+unsigned int GetMillis();
 
 #endif // GLOBAL_H_

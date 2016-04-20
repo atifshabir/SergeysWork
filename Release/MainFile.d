@@ -1,5 +1,4 @@
-MainFile.d MainFile.o: ../MainFile.c ../global.h ../TCPComm.h \
-  ../I2CFunctions.h
+MainFile.d: ../MainFile.c ../global.h ../TCPComm.h ../I2CFunctions.h
 
 ../global.h:
 

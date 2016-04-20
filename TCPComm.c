@@ -18,10 +18,8 @@ int TCPListenerSockFD;
 struct sockaddr_in tcpServerAddr;
 int numOfConnectedTCP = 0;
 
-extern char I2CDevName[];
 extern char TCP_Listener_IP[];
 extern unsigned int TCP_Listener_Port;
-extern char LogFileName[];
 
 extern FILE *logFile;
 
@@ -50,7 +48,7 @@ void TCPListenerParams_Init()
 	}else{
 		printf("\n****ERROR: %s: TCP: TCPListenerSockFD options could not be set",__PRETTY_FUNCTION__);
 		perror("");
-		fprintf(logFile, "\n%s;%s; TCP Socket sockopt failed",__DATE__, __TIME__);
+		fprintf(logFile, "\n%u; TCP Socket sockopt failed",GetMillis());
 		fflush(logFile);
 		exit(1);
 	}
@@ -60,7 +58,7 @@ void TCPListenerParams_Init()
     {
 		printf("\n****ERROR: %s: TCP: TCPListenerSockFD could not be bound",__PRETTY_FUNCTION__);
 		perror("");
-		fprintf(logFile, "\n%s;%s; TCP Socket binding failed",__DATE__, __TIME__);
+		fprintf(logFile, "\n%u; TCP Socket binding failed",GetMillis());
 		fflush(logFile);
 		exit(1);
     } else {
@@ -86,7 +84,7 @@ void TCPComm_ListenForIncommingConns()
 	if (listen(TCPListenerSockFD, 1) < 0)
 	{
 		perror("ERROR on Listening for TCP Connections ");
-		fprintf(logFile, "\n%s;%s; TCP Socket listen failed",__DATE__, __TIME__);
+		fprintf(logFile, "\n%u; TCP Socket listen failed",GetMillis());
 		fflush(logFile);
 		exit(1);
 	}
@@ -103,7 +101,7 @@ void TCPComm_ListenForIncommingConns()
 		if (sockFD < 0)
 		{
 			perror("ERROR on accepting connection");
-			fprintf(logFile, "\n%s;%s; TCP Socket accept failed",__DATE__, __TIME__);
+			fprintf(logFile, "\n%u; TCP Socket accept failed",GetMillis());
 			fflush(logFile);
 			sleep(1); //accept again after one second
 		}
@@ -114,8 +112,8 @@ void TCPComm_ListenForIncommingConns()
 					ntohs(clientAddr.sin_port));
 			fflush(stdout);
 
-			fprintf(logFile, "\n%s;%s; TCP tcp connection accepted with %s:%u",
-					__DATE__, __TIME__,
+			fprintf(logFile, "\n%u; TCP tcp connection accepted with %s:%u",
+					GetMillis(),
 					inet_ntoa(clientAddr.sin_addr),
 					ntohs(clientAddr.sin_port));
 			fflush(logFile);
@@ -137,10 +135,9 @@ void TCPComm_ReadFromConnectedCon(int sockFD)
 		readLen = read(sockFD, readBuf, SIZE_TCP_READ_BUF);
 	    if (readLen <= 0)
 	    {
-	      perror("ERROR reading from socket");
-	      fprintf(logFile, "\n%s;%s; TCP Socket read invalid",__DATE__, __TIME__);
+	      perror("\nTCP Socket readlen <= 0");
 	      close(sockFD);
-	      fprintf(logFile, "\n%s;%s; TCP tcp connection closed", __DATE__, __TIME__);
+	      fprintf(logFile, "\n%u; TCP tcp connection closed", GetMillis());
 	      fflush(logFile);
 	      return; //Reconnect for further transfers
 	    }
@@ -167,8 +164,8 @@ void TCPComm_ReadFromConnectedCon(int sockFD)
 	    		break;
 	    	default:
 	    		errorCodeToUser = errCodeInvalidMsgType;
-	    		fprintf(logFile, "\n%s;%s; TCP msg type invalid [0x%X]",
-	    				__DATE__, __TIME__,readBuf[IDX_TCP_MSG_TYPE]);
+	    		fprintf(logFile, "\n%u; TCP msg type invalid [0x%X]",
+	    				GetMillis(),readBuf[IDX_TCP_MSG_TYPE]);
 	    		fflush(logFile);
 	    		printf("\n%s: WARNING: Invalid tcpMsgType received [%u]",
 	    				__PRETTY_FUNCTION__, readBuf[IDX_TCP_MSG_TYPE]);
@@ -188,7 +185,7 @@ void TCPComm_SendResponseToUser(int sockFD, unsigned char *sendBuf, int len)
 	if(res <= 0)
 	{
 		perror("ERROR writing to socket");
-		fprintf(logFile, "\n%s;%s; TCP Socket write failed",__DATE__, __TIME__);
+		fprintf(logFile, "\n%u; TCP Socket write failed",GetMillis());
 		fflush(logFile);
 	}
 }

@@ -42,11 +42,11 @@ void CloseI2C()
 
 int  DeviceAddress(int addr)
 {	
-	int Ret_Val =1;
-	if (ioctl(File, I2C_SLAVE, addr) < 0)
+	int Ret_Val = 0;
+	Ret_Val = ioctl(File, I2C_SLAVE, addr);
+	if (Ret_Val < 0)
 	{
-		printf("\n Invalid Address");
-		Ret_Val = 0;
+		printf("\n Invalid Device Address");
 	}
 	return Ret_Val;
 }

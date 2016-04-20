@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 #include "global.h"
 #include "TCPComm.h"
@@ -140,7 +141,7 @@ int main(int argc, char *argv[])
 	ReadConfigurationParams();
 	OpenLogFile();
 	fprintf(logFile, "\n=====================");
-	fprintf(logFile, "\n%s;%s; Demon started", __DATE__, __TIME__);
+	fprintf(logFile, "\n%u; Demon started", GetMillis());
 	fflush(logFile);
 	TCPComm_Start();
 
@@ -181,3 +182,12 @@ int main(int argc, char *argv[])
 
 }
 
+
+unsigned int GetMillis()
+{
+	struct timeval currentTimeVal;
+
+	gettimeofday(&currentTimeVal, NULL);
+
+	return (unsigned int)((currentTimeVal.tv_sec * 1000) + (currentTimeVal.tv_usec / 1000));
+}
